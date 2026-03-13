@@ -147,11 +147,6 @@ const Login = () => {
           New here? <Link to="/register">Create an account</Link>
         </div>
 
-        <div className="demo-credentials">
-          <h4>⚡ Demo Credentials</h4>
-          <p><strong>Admin:</strong> admin@casa.com / admin123</p>
-          <p><strong>User:</strong> user@casa.com / user123</p>
-        </div>
       </div>
     </div>
   );

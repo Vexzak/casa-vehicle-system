@@ -428,30 +428,7 @@
 .auth-footer-link a { color: var(--red); text-decoration: none; font-weight: 700; transition: color 0.2s; }
 .auth-footer-link a:hover { color: #ff4060; text-decoration: underline; }
 
-/* ─── Demo credentials ─── */
-.demo-credentials {
-  margin-top: 16px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-  border-left: 3px solid rgba(245,196,0,0.6);
-}
-.demo-credentials h4 {
-  margin-bottom: 6px;
-  color: var(--gold);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-.demo-credentials p {
-  margin: 3px 0;
-  font-family: 'Barlow', sans-serif;
-  font-size: 11px;
-  color: var(--muted);
-}
-.demo-credentials strong { color: rgba(255,255,255,0.7); font-weight: 600; }
+
 
 /* ─── Navbar links ─── */
 .btn-login,

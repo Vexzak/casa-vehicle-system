@@ -119,7 +119,7 @@ const Register = () => {
             <input
               type="text" id="name" name="name"
               value={formData.name} onChange={handleChange}
-              placeholder="Jane Doe" autoComplete="name"
+              placeholder="Essak Santy" autoComplete="name"
               className={errors.name ? 'error-field' : ''}
             />
             {errors.name && <div className="field-error">⚠ {errors.name}</div>}
