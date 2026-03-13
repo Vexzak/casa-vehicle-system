@@ -1,0 +1,146 @@
+==============================================================================
+   CASA VEHICLE DEALERSHIP MANAGEMENT SYSTEM - QUICK START GUIDE
+==============================================================================
+
+📦 WHAT YOU NEED:
+   1. Node.js (v14+) - https://nodejs.org/
+   2. PostgreSQL (v12+) - https://www.postgresql.org/download/
+
+==============================================================================
+⚡ QUICK SETUP (5 MINUTES):
+==============================================================================
+
+STEP 1: CREATE DATABASE
+------------------------
+Open terminal/command prompt and run:
+
+   createdb casa_vehicle_db
+
+OR using psql:
+
+   psql -U postgres
+   CREATE DATABASE casa_vehicle_db;
+   \q
+
+STEP 2: SETUP BACKEND
+---------------------
+   cd casa-vehicle-system/backend
+   npm install
+   cp .env.example .env
+
+Edit .env file and set your PostgreSQL password:
+   DB_PASSWORD=your_postgres_password
+
+Initialize database:
+   npm run init-db
+   npm run seed
+
+Start backend server:
+   npm run dev
+
+✅ You should see: "Server is running on port 5000"
+
+STEP 3: SETUP FRONTEND (NEW TERMINAL)
+--------------------------------------
+   cd casa-vehicle-system/frontend
+   npm install
+   npm start
+
+✅ Browser should open at http://localhost:3000
+
+==============================================================================
+🎯 TEST THE SYSTEM:
+==============================================================================
+
+1. GUEST ACCESS:
+   - Browse vehicles on homepage
+   - Try search and filters
+   - Click on a vehicle to see details
+   - Try "Add to Cart" → You'll be redirected to login
+
+2. LOGIN AS USER:
+   Email: user@casa.com
+   Password: user123
+
+   Then try:
+   - Add vehicles to cart
+   - Checkout and place order
+   - View "My Orders"
+
+3. LOGIN AS ADMIN:
+   Email: admin@casa.com
+   Password: admin123
+
+   Then try:
+   - View Dashboard
+   - Add new vehicle
+   - Manage vehicles (edit, delete)
+   - Manage orders (update status)
+
+==============================================================================
+📁 PROJECT STRUCTURE:
+==============================================================================
+
+casa-vehicle-system/
+├── backend/              ← Node.js/Express API
+│   ├── controllers/      ← Business logic
+│   ├── routes/          ← API endpoints
+│   ├── scripts/         ← DB setup scripts
+│   └── server.js        ← Entry point
+│
+├── frontend/            ← React application
+│   ├── src/
+│   │   ├── pages/       ← React pages
+│   │   ├── components/  ← Reusable components
+│   │   └── App.js       ← Main app
+│   └── package.json
+│
+└── README.md            ← Full documentation
+
+==============================================================================
+🆘 TROUBLESHOOTING:
+==============================================================================
+
+Problem: "Database connection failed"
+→ Solution: Make sure PostgreSQL is running and .env has correct password
+
+Problem: "Port 5000 already in use"
+→ Solution: Kill process on port 5000 or change PORT in .env
+
+Problem: "No vehicles showing"
+→ Solution: Run: cd backend && npm run seed
+
+Problem: Frontend errors
+→ Solution: Make sure backend is running first
+
+==============================================================================
+📚 DOCUMENTATION:
+==============================================================================
+
+   README.md         - Complete project documentation
+   SETUP_GUIDE.md    - Detailed setup instructions
+   PROJECT_SUMMARY.md - Features and requirements checklist
+
+==============================================================================
+✅ SUCCESS INDICATORS:
+==============================================================================
+
+   ✓ Backend terminal shows "Server is running on port 5000"
+   ✓ Frontend opens in browser at http://localhost:3000
+   ✓ You can see 6 sample vehicles on homepage
+   ✓ You can login with demo credentials
+   ✓ No errors in browser console (F12)
+
+==============================================================================
+🎉 CONGRATULATIONS!
+==============================================================================
+
+Your Casa Vehicle Dealership Management System is ready to use!
+
+For detailed documentation, see README.md
+For setup help, see SETUP_GUIDE.md
+For feature list, see PROJECT_SUMMARY.md
+
+Happy coding! 🚗🏍️
+
+==============================================================================
