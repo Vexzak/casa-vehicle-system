@@ -114,10 +114,9 @@ function ConfirmDialog({ title, text, onConfirm, onCancel }) {
   );
 }
 
-/* ─── Color Picker Modal — now includes a stock input ───────────────────────── */
+/* ─── Color Picker Modal ─────────────────────────────────────────────────────── */
 function ColorPickerModal({ imagePreview, imageName, existingColor, onConfirm, onSkip }) {
   const [selected, setSelected] = useState(existingColor?.name ? existingColor : null);
-  // stock for this specific color variant — default to existingColor.stock or 1
   const [colorStock, setColorStock] = useState(
     existingColor?.stock != null ? existingColor.stock : 1
   );
@@ -143,13 +142,11 @@ function ColorPickerModal({ imagePreview, imageName, existingColor, onConfirm, o
           </p>
         </div>
 
-        {/* Preview */}
         <div className="av-color-modal-preview">
           <img src={imagePreview} alt={imageName} className="av-color-modal-img" />
           <div className="av-color-modal-filename">{imageName}</div>
         </div>
 
-        {/* Color grid */}
         <div className="av-color-grid">
           {COLOR_PALETTE.map(c => {
             const isSel = selected?.name === c.name;
@@ -168,7 +165,6 @@ function ColorPickerModal({ imagePreview, imageName, existingColor, onConfirm, o
           })}
         </div>
 
-        {/* ── Stock input — only shown when a color is selected ── */}
         {selected && (
           <div className="av-color-stock-row">
             <div className="av-color-stock-preview">
@@ -257,6 +253,36 @@ const EMPTY_FORM = {
   availability_status: 'available',
 };
 
+/* ─── Auto-detect location helper ──────────────────────────────────────────── */
+const detectLocation = (onSuccess, onError) => {
+  if (!navigator.geolocation) {
+    onError?.('Geolocation not supported by your browser.');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude.toFixed(6);
+      const lng = pos.coords.longitude.toFixed(6);
+      let locationName = '';
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+        );
+        const d = await r.json();
+        const city =
+          d.address?.city ||
+          d.address?.town ||
+          d.address?.municipality ||
+          d.address?.county || '';
+        const country = d.address?.country_code?.toUpperCase() || '';
+        if (city) locationName = `${city}${country ? ', ' + country : ''}`;
+      } catch (_) {}
+      onSuccess({ lat, lng, locationName });
+    },
+    () => onError?.('Could not get location. Please allow location access.')
+  );
+};
+
 /* ─── Main Component ────────────────────────────────────────────────────────── */
 const AdminVehicles = () => {
   const [vehicles, setVehicles]     = useState([]);
@@ -265,7 +291,6 @@ const AdminVehicles = () => {
   const [editMode, setEditMode]     = useState(false);
   const [formData, setFormData]     = useState(EMPTY_FORM);
 
-  // images: [{file, preview, color: {name, hex, stock} | null, name}]
   const [imageItems, setImageItems]         = useState([]);
   const [colorPickerIdx, setColorPickerIdx] = useState(null);
 
@@ -282,6 +307,23 @@ const AdminVehicles = () => {
   const fileRef = useRef(null);
 
   useEffect(() => { fetchVehicles(); }, []);
+
+  // ── Auto-detect location when Add Vehicle form opens ──
+  useEffect(() => {
+    if (!showForm) return;
+    if (formData.latitude && formData.longitude) return; // skip when editing
+    detectLocation(
+      ({ lat, lng, locationName }) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          ...(locationName ? { location: locationName } : {}),
+        }));
+      },
+      () => {} // silently fail — user can click Auto-detect manually
+    );
+  }, [showForm]);
 
   const fetchVehicles = async () => {
     try {
@@ -321,7 +363,7 @@ const AdminVehicles = () => {
       return b.id - a.id;
     });
 
-  /* ── image add: queue color picker for each new image ── */
+  /* ── image add ── */
   const addFiles = (files) => {
     const arr = Array.from(files);
     const newItems = [];
@@ -344,13 +386,11 @@ const AdminVehicles = () => {
     });
   };
 
-  /* ── color confirmed for current image ── */
   const handleColorConfirm = (color) => {
     setImageItems(prev => {
       const updated = prev.map((item, i) =>
         i === colorPickerIdx ? { ...item, color } : item
       );
-      // find next untagged image after current
       const nextIdx = updated.findIndex((item, i) => i > colorPickerIdx && item.color === null);
       setColorPickerIdx(nextIdx !== -1 ? nextIdx : null);
       return updated;
@@ -375,7 +415,6 @@ const AdminVehicles = () => {
     addFiles(e.dataTransfer.files);
   };
 
-  /* ── form change ── */
   const handleChange = e => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -387,7 +426,6 @@ const AdminVehicles = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      // Build colors array from tagged images — deduplicated, stock summed per color
       const colorMap = {};
       imageItems.forEach(item => {
         if (!item.color) return;
@@ -395,13 +433,11 @@ const AdminVehicles = () => {
         if (!colorMap[key]) {
           colorMap[key] = { ...item.color, stock: parseInt(item.color.stock, 10) || 1 };
         } else {
-          // If same color tagged on multiple images, sum stock
           colorMap[key].stock += parseInt(item.color.stock, 10) || 1;
         }
       });
       const colors = Object.values(colorMap);
 
-      // Total stock = sum of all color stocks (or 1 if no colors tagged)
       const totalStock = colors.length > 0
         ? colors.reduce((sum, c) => sum + c.stock, 0)
         : 1;
@@ -426,7 +462,6 @@ const AdminVehicles = () => {
         showToast('Vehicle created successfully!');
       }
 
-      // Upload images with color + stock metadata
       if (imageItems.length > 0 && vehicleId) {
         const imgForm = new FormData();
         imageItems.forEach((item, i) => {
@@ -488,7 +523,7 @@ const AdminVehicles = () => {
     setEditMode(false); setShowForm(false);
   };
 
-  /* ── derived: tagged colors with their stocks ── */
+  /* ── derived: tagged colors ── */
   const taggedColors = Object.values(
     imageItems
       .filter(i => i.color)
@@ -520,7 +555,7 @@ const AdminVehicles = () => {
           </div>
         </div>
 
-        {/* ── STATS — added Total Stock tile ── */}
+        {/* ── STATS ── */}
         <div className="av-stats">
           <div className="av-stat">
             <span className="av-stat-val">{totalVehicles}</span>
@@ -645,8 +680,6 @@ const AdminVehicles = () => {
                           {parseFloat(v.price).toLocaleString()}
                         </span>
                       </td>
-
-                      {/* Colors column — now shows per-color stock on hover via title */}
                       <td>
                         {vColors.length > 0 ? (
                           <div className="av-color-dots-row">
@@ -667,8 +700,6 @@ const AdminVehicles = () => {
                           </div>
                         ) : <span className="av-td-none">—</span>}
                       </td>
-
-                      {/* Features column */}
                       <td>
                         {vFeatures.length > 0 ? (
                           <div className="av-features-pills-row">
@@ -686,14 +717,11 @@ const AdminVehicles = () => {
                           </div>
                         ) : <span className="av-td-none">—</span>}
                       </td>
-
-                      {/* ── Stock column ── */}
                       <td>
                         <div className="av-stock-cell">
                           <span className={`av-stock-badge ${vStock === 0 ? 'out' : vStock <= 2 ? 'low' : 'ok'}`}>
                             {vStock === 0 ? '✕ Out' : `${vStock} unit${vStock !== 1 ? 's' : ''}`}
                           </span>
-                          {/* Per-color breakdown tooltip if colors have stock */}
                           {vColors.length > 0 && vColors.some(c => c.stock != null) && (
                             <div className="av-stock-breakdown">
                               {vColors.map(c => (
@@ -715,7 +743,6 @@ const AdminVehicles = () => {
                           )}
                         </div>
                       </td>
-
                       <td>
                         <span className={`av-status-badge ${v.availability_status}`}>
                           {v.availability_status}
@@ -853,17 +880,39 @@ const AdminVehicles = () => {
                     <div className="av-form-group full">
                       <label className="av-label">Location Name</label>
                       <input className="av-input" name="location" value={formData.location}
-                        onChange={handleChange} placeholder="e.g. Davao City, PH" />
+                        onChange={handleChange} placeholder="e.g. General Santos City, PH" />
                     </div>
                     <div className="av-form-group">
-                      <label className="av-label">Latitude</label>
+                      <label className="av-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Latitude
+                        <button
+                          type="button"
+                          className="av-btn-link"
+                          style={{ fontSize: 11 }}
+                          onClick={() =>
+                            detectLocation(
+                              ({ lat, lng, locationName }) => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  latitude: lat,
+                                  longitude: lng,
+                                  ...(locationName ? { location: locationName } : {}),
+                                }));
+                              },
+                              (err) => showToast(err, 'error')
+                            )
+                          }
+                        >
+                          📍 Auto-detect
+                        </button>
+                      </label>
                       <input className="av-input" type="number" step="any" name="latitude"
-                        value={formData.latitude} onChange={handleChange} placeholder="7.0707" />
+                        value={formData.latitude} onChange={handleChange} placeholder="6.11278" />
                     </div>
                     <div className="av-form-group">
                       <label className="av-label">Longitude</label>
                       <input className="av-input" type="number" step="any" name="longitude"
-                        value={formData.longitude} onChange={handleChange} placeholder="125.6087" />
+                        value={formData.longitude} onChange={handleChange} placeholder="125.17167" />
                     </div>
                   </div>
                 </div>
@@ -884,7 +933,6 @@ const AdminVehicles = () => {
                     of that color are in stock. Total stock is calculated automatically.
                   </p>
 
-                  {/* Tagged color + stock preview */}
                   {taggedColors.length > 0 && (
                     <div className="av-tagged-colors-preview">
                       {taggedColors.map(c => (
