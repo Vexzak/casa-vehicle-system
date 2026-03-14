@@ -1,32 +1,5 @@
 const pool = require('../config/database');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-// ─── Multer Config ───────────────────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/vehicles';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|webp|gif/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext && mime) return cb(null, true);
-    cb(new Error('Only image files are allowed (jpeg, jpg, png, webp, gif)'));
-  }
-});
+const { upload } = require('../config/cloudinary');
 
 // ─── Helper: safely parse JSON fields sent as strings ───────────────────────
 const parseJSON = (val, fallback = []) => {
@@ -36,15 +9,10 @@ const parseJSON = (val, fallback = []) => {
 };
 
 // ─── Helper: derive overall availability_status from stock ──────────────────
-// If stock > 0 and not manually sold → available
-// If stock === 0 and has active reservations → reserved
-// If stock === 0 and sold by admin → sold
-// We let the reservation controller manage reserved ↔ available transitions.
-// This helper is only used when admin explicitly sets stock.
 const statusFromStock = (stock, currentStatus) => {
   if (stock > 0 && currentStatus !== 'sold') return 'available';
   if (stock === 0 && currentStatus === 'available') return 'reserved';
-  return currentStatus; // keep sold as sold
+  return currentStatus;
 };
 
 // ─── Get all vehicles (with filters, search, reservation status) ────────────
@@ -136,17 +104,14 @@ const createVehicle = async (req, res) => {
       name, type, brand, year, price, description,
       location, latitude, longitude, images,
       features, colors, color_variants,
-      stock,                              // ← new: overall stock
+      stock,
     } = req.body;
 
     const featuresVal      = JSON.stringify(parseJSON(features, []));
-    // Colors now carry per-color stock: [{name, hex, stock}]
     const parsedColors     = parseJSON(colors, []);
     const colorsVal        = JSON.stringify(parsedColors);
     const colorVariantsVal = JSON.stringify(parseJSON(color_variants || colors, []));
 
-    // Overall stock: use explicit value if provided, otherwise sum color stocks,
-    // otherwise default to 1
     const totalStock = stock != null
       ? parseInt(stock, 10)
       : parsedColors.length > 0
@@ -212,7 +177,6 @@ const uploadVehicleImages = async (req, res) => {
       }
     });
 
-    // Update vehicle colors + recalculate total stock from color stocks
     if (req.body.colors) {
       const newColors = parseJSON(req.body.colors, []);
       if (newColors.length > 0) {
@@ -229,7 +193,7 @@ const uploadVehicleImages = async (req, res) => {
     const inserted = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
-      const imagePath = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/vehicles/${file.filename}`;
+      const imagePath = file.path;  // ← Cloudinary URL
       const colorData = imageColors[i] ? JSON.stringify(imageColors[i]) : null;
 
       const result = await pool.query(
@@ -259,7 +223,7 @@ const updateVehicle = async (req, res) => {
       name, type, brand, year, price, description,
       location, latitude, longitude, availability_status,
       features, colors, color_variants,
-      stock,                              // ← new
+      stock,
     } = req.body;
 
     if (availability_status === 'reserved') {
@@ -279,15 +243,12 @@ const updateVehicle = async (req, res) => {
     const colorsVal    = JSON.stringify(parsedColors);
     const colorVariantsVal = JSON.stringify(parseJSON(color_variants || colors, []));
 
-    // Recalculate total stock from color stocks if colors provided,
-    // otherwise use explicit stock value
     const totalStock = stock != null
       ? parseInt(stock, 10)
       : parsedColors.length > 0
         ? parsedColors.reduce((sum, c) => sum + (parseInt(c.stock, 10) || 1), 0)
-        : undefined; // don't overwrite if neither provided
+        : undefined;
 
-    // Build query dynamically so we only update stock when it's explicitly provided
     let stockClause = '';
     const params = [
       name, type, brand, year, price,
@@ -301,7 +262,7 @@ const updateVehicle = async (req, res) => {
       params.push(totalStock);
     }
 
-    params.push(id); // last param is always the WHERE id
+    params.push(id);
 
     const result = await pool.query(`
       UPDATE vehicles
@@ -352,13 +313,7 @@ const deleteVehicle = async (req, res) => {
 
     const vehicleName = vehicleResult.rows[0].name;
 
-    const imgResult = await pool.query('SELECT image_path FROM vehicle_images WHERE vehicle_id = $1', [id]);
-    for (const row of imgResult.rows) {
-      const filename = path.basename(row.image_path);
-      const filePath = path.join(__dirname, '..', 'uploads', 'vehicles', filename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-
+    // No local file deletion needed — Cloudinary manages the files
     await pool.query('DELETE FROM vehicles WHERE id = $1', [id]);
 
     await pool.query(
